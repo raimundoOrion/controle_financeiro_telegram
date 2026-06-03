@@ -167,6 +167,11 @@ def main():
     app.add_handler(CommandHandler("relatorio", relatorio))
     app.add_handler(CommandHandler("meta", meta))
     app.add_handler(CommandHandler("exportar", exportar))
+    import asyncio
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     app.run_polling(close_loop=False)
 
 
