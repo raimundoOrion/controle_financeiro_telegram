@@ -28,7 +28,6 @@ from .reports import exportar_excel
 
 load_dotenv()
 
-
 def moeda(valor: float) -> str:
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
