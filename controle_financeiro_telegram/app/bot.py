@@ -108,7 +108,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["💰 Saldo", "📊 Relatório"],
         ["📋 Extrato", "📁 Exportar Excel"],
         ["🎯 Meta", "📈 Gráfico"],
-        ["🗑️ Zerar Dados"],
+        ["🗑️ Zerar Dados"]
     ]
 
     menu = ReplyKeyboardMarkup(
