@@ -36,17 +36,66 @@ def parse_valor(texto: str) -> float:
 
 def categoria_automatica(descricao: str) -> str:
     d = descricao.lower()
+
     regras = {
-        "Alimentação": ["mercado", "restaurante", "lanche", "ifood", "padaria", "almoço", "jantar"],
-        "Combustível": ["gasolina", "etanol", "diesel", "posto", "combustível"],
-        "Moradia": ["aluguel", "condomínio", "energia", "água", "internet"],
-        "Saúde": ["farmácia", "médico", "consulta", "exame"],
-        "Transporte": ["uber", "99", "ônibus", "metrô", "estacionamento"],
-        "Lazer": ["cinema", "show", "bar", "viagem", "passeio"],
+        "Alimentação": [
+            "mercado", "supermercado", "atacadão", "assai", "extra", "carrefour",
+            "restaurante", "lanche", "ifood", "padaria", "almoço", "jantar",
+            "pizza", "hamburguer", "comida", "açougue", "hortifruti"
+        ],
+        "Combustível": [
+            "gasolina", "etanol", "diesel", "posto", "combustível", "abasteci",
+            "abastecimento"
+        ],
+        "Transporte": [
+            "uber", "99", "ônibus", "metro", "metrô", "estacionamento",
+            "pedágio", "pedagio", "taxi", "táxi"
+        ],
+        "Moradia": [
+            "aluguel", "condomínio", "condominio", "energia", "luz", "água",
+            "agua", "internet", "gás", "gas", "iptu"
+        ],
+        "Saúde": [
+            "farmácia", "farmacia", "remédio", "remedio", "médico", "medico",
+            "consulta", "exame", "dentista", "hospital", "plano de saúde"
+        ],
+        "Educação": [
+            "escola", "faculdade", "curso", "livro", "material escolar",
+            "mensalidade", "aula"
+        ],
+        "Lazer": [
+            "cinema", "show", "bar", "viagem", "passeio", "hotel",
+            "netflix", "spotify", "amazon prime", "disney", "streaming"
+        ],
+        "Cartão de Crédito": [
+            "cartão", "cartao", "fatura", "nubank", "inter", "c6", "itaucard"
+        ],
+        "Salário": [
+            "salário", "salario", "pagamento", "ordenado"
+        ],
+        "Recebimentos": [
+            "pix", "transferência", "transferencia", "recebi", "entrada",
+            "depósito", "deposito"
+        ],
+        "Investimentos": [
+            "investimento", "aplicação", "aplicacao", "tesouro", "cdb",
+            "ações", "acoes", "fii", "renda fixa"
+        ],
+        "Manutenção": [
+            "manutenção", "manutencao", "oficina", "mecânico", "mecanico",
+            "peça", "peca", "conserto", "reparo"
+        ],
+        "Vestuário": [
+            "roupa", "calçado", "calcado", "sapato", "camisa", "bermuda",
+            "tenis", "tênis"
+        ],
+        "Outros": []
     }
+
     for categoria, palavras in regras.items():
-        if any(p in d for p in palavras):
+        if any(palavra in d for palavra in palavras):
             return categoria
+
     return "Outros"
 
 
