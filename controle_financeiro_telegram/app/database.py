@@ -116,7 +116,6 @@ def definir_meta(user_id: int, categoria: str, limite: float, mes: str):
             (user_id, categoria, limite, mes),
         )
 
-
 def gasto_categoria_mes(user_id: int, categoria: str, mes: str) -> float:
     with get_conn() as conn:
         row = conn.execute(
