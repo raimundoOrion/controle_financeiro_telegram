@@ -347,37 +347,46 @@ async def erro_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     print(f"ERRO NO BOT: {context.error}")
     
 async def grafico(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    mes = datetime.now().strftime("%Y-%m")
+    try:
+        user_id = update.effective_user.id
+        mes = datetime.now().strftime("%Y-%m")
 
-    dados = despesas_por_categoria_mes(user_id, mes)
+        dados = despesas_por_categoria_mes(user_id, mes)
 
-    if not dados:
-        await update.message.reply_text("Ainda não existem despesas neste mês para gerar gráfico.")
-        return
+        if not dados:
+            await update.message.reply_text(
+                "Ainda não existem despesas neste mês para gerar gráfico."
+            )
+            return
 
-    categorias = [item["categoria"] for item in dados]
-    valores = [float(item["total"]) for item in dados]
+        categorias = [item["categoria"] for item in dados]
+        valores = [float(item["total"]) for item in dados]
 
-    pasta = Path("exports")
-    pasta.mkdir(parents=True, exist_ok=True)
+        pasta = Path("exports")
+        pasta.mkdir(parents=True, exist_ok=True)
 
-    arquivo = pasta / f"grafico_{user_id}_{mes}.png"
+        arquivo = pasta / f"grafico_{user_id}_{mes}.png"
 
-    plt.figure(figsize=(8, 5))
-    plt.bar(categorias, valores)
-    plt.title(f"Despesas por Categoria - {mes}")
-    plt.xlabel("Categoria")
-    plt.ylabel("Valor (R$)")
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    plt.savefig(arquivo)
-    plt.close()
+        plt.figure(figsize=(8, 5))
+        plt.bar(categorias, valores)
+        plt.title(f"Despesas por Categoria - {mes}")
+        plt.xlabel("Categoria")
+        plt.ylabel("Valor (R$)")
+        plt.xticks(rotation=45, ha="right")
+        plt.tight_layout()
+        plt.savefig(arquivo)
+        plt.close()
 
-    await update.message.reply_photo(
-        photo=open(arquivo, "rb"),
-        caption=f"📊 Despesas por categoria - {mes}"
-    )        
+        with open(arquivo, "rb") as foto:
+            await update.message.reply_photo(
+                photo=foto,
+                caption=f"📊 Despesas por categoria - {mes}"
+            )
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"Erro ao gerar gráfico:\n{e}"
+        )        
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
