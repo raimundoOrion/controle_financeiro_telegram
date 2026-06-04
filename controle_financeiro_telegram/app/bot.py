@@ -231,7 +231,7 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif texto == "🎯 Meta":
         await update.message.reply_text("Use assim:\n/meta Alimentação 800")
         
-        elif texto == "🗑️ Zerar Dados":
+    elif texto == "🗑️ Zerar Dados":
         await zerar(update, context)
 
     elif texto == "CONFIRMAR":
@@ -243,36 +243,36 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/receita 1000 Salário\n"
             "/despesa 100 Mercado"
         )
-            
+
     else:
         lancamento = interpretar_lancamento(texto)
 
-    if lancamento:
-        user_id = update.effective_user.id
-        adicionar_transacao(
-            user_id,
-            lancamento["tipo"],
-            lancamento["valor"],
-            lancamento["categoria"],
-            lancamento["descricao"]
-        )
+        if lancamento:
+            user_id = update.effective_user.id
+            adicionar_transacao(
+                user_id,
+                lancamento["tipo"],
+                lancamento["valor"],
+                lancamento["categoria"],
+                lancamento["descricao"]
+            )
 
-        saldo_atual = saldo(user_id)
+            saldo_atual = saldo(user_id)
 
-        await update.message.reply_text(
-            f"✅ Lançamento registrado automaticamente\n\n"
-            f"Tipo: {lancamento['tipo'].capitalize()}\n"
-            f"Valor: {moeda(lancamento['valor'])}\n"
-            f"Categoria: {lancamento['categoria']}\n"
-            f"Descrição: {lancamento['descricao']}\n"
-            f"Saldo atual: {moeda(saldo_atual)}"
-        )
-    else:
-        await update.message.reply_text(
-            "Não entendi. Você pode usar o menu ou escrever, por exemplo:\n\n"
-            "Gastei 150 no mercado\n"
-            "Recebi 3000 de salário"
-        )
+            await update.message.reply_text(
+                f"✅ Lançamento registrado automaticamente\n\n"
+                f"Tipo: {lancamento['tipo'].capitalize()}\n"
+                f"Valor: {moeda(lancamento['valor'])}\n"
+                f"Categoria: {lancamento['categoria']}\n"
+                f"Descrição: {lancamento['descricao']}\n"
+                f"Saldo atual: {moeda(saldo_atual)}"
+            )
+        else:
+            await update.message.reply_text(
+                "Não entendi. Você pode usar o menu ou escrever, por exemplo:\n\n"
+                "Gastei 150 no mercado\n"
+                "Recebi 3000 de salário"
+            )
 
 async def zerar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
