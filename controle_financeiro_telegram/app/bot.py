@@ -1,6 +1,8 @@
 import os
 import re
 import logging
+import matplotlib.pyplot as plt
+from pathlib import Path
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -20,6 +22,7 @@ from .database import (
     definir_meta,
     gasto_categoria_mes,
     zerar_dados_usuario,
+    despesas_por_categoria_mes,
 )
 from .reports import exportar_excel
 
@@ -104,7 +107,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["➕ Receita", "➖ Despesa"],
         ["💰 Saldo", "📊 Relatório"],
         ["📋 Extrato", "📁 Exportar Excel"],
-        ["🎯 Meta"],
+        ["🎯 Meta", "📈 Gráfico"]
         ["🗑️ Zerar Dados"]
     ]
 
@@ -286,6 +289,9 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif texto == "🎯 Meta":
         await update.message.reply_text("Use assim:\n/meta Alimentação 800")
         
+    elif texto == "📈 Gráfico":
+        await grafico(update, context)    
+        
     elif texto == "🗑️ Zerar Dados":
         await zerar(update, context)
 
@@ -338,7 +344,40 @@ async def zerar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def erro_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    print(f"ERRO NO BOT: {context.error}")    
+    print(f"ERRO NO BOT: {context.error}")
+    
+async def grafico(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    mes = datetime.now().strftime("%Y-%m")
+
+    dados = despesas_por_categoria_mes(user_id, mes)
+
+    if not dados:
+        await update.message.reply_text("Ainda não existem despesas neste mês para gerar gráfico.")
+        return
+
+    categorias = [item["categoria"] for item in dados]
+    valores = [float(item["total"]) for item in dados]
+
+    pasta = Path("exports")
+    pasta.mkdir(parents=True, exist_ok=True)
+
+    arquivo = pasta / f"grafico_{user_id}_{mes}.png"
+
+    plt.figure(figsize=(8, 5))
+    plt.bar(categorias, valores)
+    plt.title(f"Despesas por Categoria - {mes}")
+    plt.xlabel("Categoria")
+    plt.ylabel("Valor (R$)")
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    plt.savefig(arquivo)
+    plt.close()
+
+    await update.message.reply_photo(
+        photo=open(arquivo, "rb"),
+        caption=f"📊 Despesas por categoria - {mes}"
+    )        
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -356,6 +395,7 @@ def main():
     app.add_handler(CommandHandler("meta", meta))
     app.add_handler(CommandHandler("exportar", exportar))
     app.add_handler(CommandHandler("zerar", zerar))
+    app.add_handler(CommandHandler("grafico", grafico))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
     app.add_error_handler(erro_handler)
     
@@ -367,7 +407,6 @@ def main():
     print("BOT INICIADO E AGUARDANDO MENSAGENS")
 
     app.run_polling(close_loop=False)
-
 
 if __name__ == "__main__":
     main()
