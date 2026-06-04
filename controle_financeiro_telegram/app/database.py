@@ -152,5 +152,30 @@ def despesas_por_categoria_mes(user_id: int, mes: str):
             ORDER BY total DESC
             """,
             (user_id, mes),
-        ).fetchall()        
+        ).fetchall()
+        
+def listar_ultimos_lancamentos(user_id: int, limite: int = 10):
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT id, tipo, valor, categoria, descricao, data
+            FROM transacoes
+            WHERE user_id=?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (user_id, limite),
+        ).fetchall()
+
+
+def excluir_lancamento(user_id: int, transacao_id: int) -> bool:
+    with get_conn() as conn:
+        cursor = conn.execute(
+            """
+            DELETE FROM transacoes
+            WHERE user_id=? AND id=?
+            """,
+            (user_id, transacao_id),
+        )
+        return cursor.rowcount > 0                
         
