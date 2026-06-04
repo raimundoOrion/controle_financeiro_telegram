@@ -71,23 +71,26 @@ def resumo_mes(user_id: int, mes: str):
             """
             SELECT tipo, COALESCE(SUM(valor),0) AS total
             FROM transacoes
-            WHERE user_id=? AND strftime('%Y-%m', data)=?
+            WHERE user_id=? AND substr(data, 1, 7)=?
             GROUP BY tipo
             """,
             (user_id, mes),
         ).fetchall()
+
         categorias = conn.execute(
             """
             SELECT categoria, COALESCE(SUM(valor),0) AS total
             FROM transacoes
-            WHERE user_id=? AND tipo='despesa' AND strftime('%Y-%m', data)=?
+            WHERE user_id=? AND tipo='despesa' AND substr(data, 1, 7)=?
             GROUP BY categoria
             ORDER BY total DESC
             """,
             (user_id, mes),
         ).fetchall()
+
     receitas = sum(float(r["total"]) for r in totais if r["tipo"] == "receita")
     despesas = sum(float(r["total"]) for r in totais if r["tipo"] == "despesa")
+
     return receitas, despesas, categorias
 
 
