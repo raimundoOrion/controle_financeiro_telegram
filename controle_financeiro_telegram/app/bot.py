@@ -28,6 +28,7 @@ from .reports import exportar_excel
 
 load_dotenv()
 
+
 def moeda(valor: float) -> str:
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -405,7 +406,10 @@ def main():
     
     print("BOT INICIADO E AGUARDANDO MENSAGENS")
 
-    app.run_polling(close_loop=False)
+    app.run_polling(
+    close_loop=False,
+    drop_pending_updates=True
+)
 
 if __name__ == "__main__":
     main()
