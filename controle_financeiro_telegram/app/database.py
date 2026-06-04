@@ -140,3 +140,17 @@ def zerar_dados_usuario(user_id: int):
             "DELETE FROM metas WHERE user_id=?",
             (user_id,)
         )
+
+def despesas_por_categoria_mes(user_id: int, mes: str):
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT categoria, COALESCE(SUM(valor),0) AS total
+            FROM transacoes
+            WHERE user_id=? AND tipo='despesa' AND substr(data, 1, 7)=?
+            GROUP BY categoria
+            ORDER BY total DESC
+            """,
+            (user_id, mes),
+        ).fetchall()        
+        
