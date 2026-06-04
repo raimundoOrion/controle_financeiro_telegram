@@ -46,12 +46,11 @@ def categoria_automatica(descricao: str) -> str:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     teclado = [
-    ["➕ Receita", "➖ Despesa"],
-    ["💰 Saldo", "📊 Relatório"],
-    ["📋 Extrato", "📁 Exportar Excel"],
-    ["🎯 Meta"],
-    ["🗑️ Zerar Dados"]
-
+        ["➕ Receita", "➖ Despesa"],
+        ["💰 Saldo", "📊 Relatório"],
+        ["📋 Extrato", "📁 Exportar Excel"],
+        ["🎯 Meta"],
+        ["🗑️ Zerar Dados"]
     ]
 
     menu = ReplyKeyboardMarkup(
@@ -69,7 +68,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/extrato\n"
         "/relatorio\n"
         "/meta Alimentação 800\n"
-        "/exportar"
+        "/exportar\n"
+        "/zerar"
     )
 
     await update.message.reply_text(texto, reply_markup=menu)
