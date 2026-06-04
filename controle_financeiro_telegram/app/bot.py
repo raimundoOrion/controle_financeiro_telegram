@@ -406,10 +406,19 @@ asyncio.set_event_loop(loop)
 
 print("BOT RODANDO - POLLING ATIVO", flush=True)
 
-app.run_polling(
-    close_loop=False,
-    drop_pending_updates=True
+loop.run_until_complete(
+    app.initialize()
 )
+
+loop.run_until_complete(
+    app.start()
+)
+
+loop.run_until_complete(
+    app.updater.start_polling(drop_pending_updates=True)
+)
+
+loop.run_forever()
 
 if __name__ == "__main__":
     main()
