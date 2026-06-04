@@ -367,15 +367,16 @@ async def grafico(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         arquivo = pasta / f"grafico_{user_id}_{mes}.png"
 
-        plt.figure(figsize=(8, 5))
-        plt.bar(categorias, valores)
-        plt.title(f"Despesas por Categoria - {mes}")
-        plt.xlabel("Categoria")
-        plt.ylabel("Valor (R$)")
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.bar(categorias, valores)
+        ax.set_title(f"Despesas por Categoria - {mes}")
+        ax.set_xlabel("Categoria")
+        ax.set_ylabel("Valor (R$)")
         plt.xticks(rotation=45, ha="right")
         plt.tight_layout()
-        plt.savefig(arquivo)
-        plt.close()
+
+        fig.savefig(arquivo)
+        plt.close(fig)
 
         with open(arquivo, "rb") as foto:
             await update.message.reply_photo(
@@ -385,7 +386,7 @@ async def grafico(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await update.message.reply_text(
-            f"Erro ao gerar gráfico:\n{e}"
+            f"Erro ao gerar gráfico:\n{type(e).__name__}: {e}"
         )        
 
 def main():
