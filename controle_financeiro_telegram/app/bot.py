@@ -20,7 +20,8 @@ from .database import (
     definir_meta,
     gasto_categoria_mes,
     zerar_dados_usuario,
-    despesas_por_categoria_mes,
+    listar_ultimos_lancamentos,
+    excluir_lancamento,
 )
 from .reports import exportar_excel
 
