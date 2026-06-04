@@ -273,7 +273,7 @@ def main():
     app.add_handler(CommandHandler("relatorio", relatorio))
     app.add_handler(CommandHandler("meta", meta))
     app.add_handler(CommandHandler("exportar", exportar))
-    app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, menu_botoes))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
     
     import asyncio
 
