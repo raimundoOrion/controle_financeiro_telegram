@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup
@@ -163,6 +164,46 @@ async def exportar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     arquivo = exportar_excel(user_id)
     await update.message.reply_document(document=open(arquivo, "rb"), filename=arquivo.name)
+    
+def interpretar_lancamento(texto: str):
+    texto_original = texto
+    texto = texto.lower().strip()
+
+    palavras_despesa = [
+        "gastei", "paguei", "comprei", "despesa", "saída", "saida",
+        "pagamento", "debito", "débito"
+    ]
+
+    palavras_receita = [
+        "recebi", "ganhei", "entrou", "entrada", "receita",
+        "salário", "salario", "pix recebido"
+    ]
+
+    tipo = None
+
+    if any(p in texto for p in palavras_despesa):
+        tipo = "despesa"
+    elif any(p in texto for p in palavras_receita):
+        tipo = "receita"
+
+    padrao_valor = r"(\d+(?:[.,]\d{1,2})?)"
+    encontrado = re.search(padrao_valor, texto)
+
+    if not encontrado or not tipo:
+        return None
+
+    valor = parse_valor(encontrado.group(1))
+
+    descricao = texto_original
+    categoria = categoria_automatica(descricao)
+
+    return {
+        "tipo": tipo,
+        "valor": valor,
+        "descricao": descricao,
+        "categoria": categoria
+    }
+    
 async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = update.message.text
 
@@ -188,8 +229,33 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Use assim:\n/meta Alimentação 800")
 
     else:
+    lancamento = interpretar_lancamento(texto)
+
+    if lancamento:
+        user_id = update.effective_user.id
+        adicionar_transacao(
+            user_id,
+            lancamento["tipo"],
+            lancamento["valor"],
+            lancamento["categoria"],
+            lancamento["descricao"]
+        )
+
+        saldo_atual = saldo(user_id)
+
         await update.message.reply_text(
-            "Não entendi. Use o menu ou envie /start."
+            f"✅ Lançamento registrado automaticamente\n\n"
+            f"Tipo: {lancamento['tipo'].capitalize()}\n"
+            f"Valor: {moeda(lancamento['valor'])}\n"
+            f"Categoria: {lancamento['categoria']}\n"
+            f"Descrição: {lancamento['descricao']}\n"
+            f"Saldo atual: {moeda(saldo_atual)}"
+        )
+    else:
+        await update.message.reply_text(
+            "Não entendi. Você pode usar o menu ou escrever, por exemplo:\n\n"
+            "Gastei 150 no mercado\n"
+            "Recebi 3000 de salário"
         )
 
 def main():
