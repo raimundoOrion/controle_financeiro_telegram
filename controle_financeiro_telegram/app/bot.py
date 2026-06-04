@@ -13,6 +13,7 @@ from .database import (
     listar_transacoes,
     definir_meta,
     gasto_categoria_mes,
+    zerar_dados_usuario,
 )
 from .reports import exportar_excel
 
@@ -45,10 +46,12 @@ def categoria_automatica(descricao: str) -> str:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     teclado = [
-        ["➕ Receita", "➖ Despesa"],
-        ["💰 Saldo", "📊 Relatório"],
-        ["📋 Extrato", "📁 Exportar Excel"],
-        ["🎯 Meta"]
+    ["➕ Receita", "➖ Despesa"],
+    ["💰 Saldo", "📊 Relatório"],
+    ["📋 Extrato", "📁 Exportar Excel"],
+    ["🎯 Meta"],
+    ["🗑️ Zerar Dados"]
+
     ]
 
     menu = ReplyKeyboardMarkup(
@@ -227,7 +230,20 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif texto == "🎯 Meta":
         await update.message.reply_text("Use assim:\n/meta Alimentação 800")
+        
+        elif texto == "🗑️ Zerar Dados":
+        await zerar(update, context)
 
+    elif texto == "CONFIRMAR":
+        user_id = update.effective_user.id
+        zerar_dados_usuario(user_id)
+        await update.message.reply_text(
+            "🗑️ Dados zerados com sucesso.\n\n"
+            "Você pode começar novamente usando:\n"
+            "/receita 1000 Salário\n"
+            "/despesa 100 Mercado"
+        )
+            
     else:
         lancamento = interpretar_lancamento(texto)
 
@@ -258,6 +274,14 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Recebi 3000 de salário"
         )
 
+async def zerar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "⚠️ Atenção!\n\n"
+        "Isso apagará todas as suas receitas, despesas, metas e extratos.\n\n"
+        "Para confirmar, digite:\n\n"
+        "CONFIRMAR"
+    )
+
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
@@ -273,6 +297,7 @@ def main():
     app.add_handler(CommandHandler("relatorio", relatorio))
     app.add_handler(CommandHandler("meta", meta))
     app.add_handler(CommandHandler("exportar", exportar))
+    app.add_handler(CommandHandler("zerar", zerar))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
     
     import asyncio
