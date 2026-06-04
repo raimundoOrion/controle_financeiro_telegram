@@ -1,10 +1,6 @@
 import os
 import re
 import logging
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from pathlib import Path
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -364,32 +360,27 @@ async def grafico(update: Update, context: ContextTypes.DEFAULT_TYPE):
         categorias = [item["categoria"] for item in dados]
         valores = [float(item["total"]) for item in dados]
 
-        pasta = Path("exports")
-        pasta.mkdir(parents=True, exist_ok=True)
+        texto_categorias = ",".join(categorias)
+        texto_valores = ",".join([str(v) for v in valores])
 
-        arquivo = pasta / f"grafico_{user_id}_{mes}.png"
+        url = (
+            "https://quickchart.io/chart?"
+            "c={type:'bar',data:{labels:["
+            + ",".join([f"'{c}'" for c in categorias])
+            + "],datasets:[{label:'Despesas',data:["
+            + ",".join([str(v) for v in valores])
+            + "]}]}}"
+        )
 
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.bar(categorias, valores)
-        ax.set_title(f"Despesas por Categoria - {mes}")
-        ax.set_xlabel("Categoria")
-        ax.set_ylabel("Valor (R$)")
-        plt.xticks(rotation=45, ha="right")
-        plt.tight_layout()
-
-        fig.savefig(arquivo)
-        plt.close(fig)
-
-        with open(arquivo, "rb") as foto:
-            await update.message.reply_photo(
-                photo=foto,
-                caption=f"📊 Despesas por categoria - {mes}"
-            )
+        await update.message.reply_photo(
+            photo=url,
+            caption=f"📊 Despesas por categoria - {mes}"
+        )
 
     except Exception as e:
         await update.message.reply_text(
             f"Erro ao gerar gráfico:\n{type(e).__name__}: {e}"
-        )        
+        )     
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
