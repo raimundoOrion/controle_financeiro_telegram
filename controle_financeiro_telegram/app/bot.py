@@ -1,5 +1,11 @@
 import os
 import re
+import logging
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup
@@ -282,6 +288,9 @@ async def zerar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "CONFIRMAR"
     )
 
+async def erro_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    print(f"ERRO NO BOT: {context.error}")    
+
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
@@ -299,11 +308,14 @@ def main():
     app.add_handler(CommandHandler("exportar", exportar))
     app.add_handler(CommandHandler("zerar", zerar))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
+    app.add_error_handler(erro_handler)
     
     import asyncio
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    
+    print("BOT INICIADO E AGUARDANDO MENSAGENS")
 
     app.run_polling(close_loop=False)
 
