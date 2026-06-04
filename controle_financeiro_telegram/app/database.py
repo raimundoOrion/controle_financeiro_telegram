@@ -128,3 +128,14 @@ def gasto_categoria_mes(user_id: int, categoria: str, mes: str) -> float:
             (user_id, categoria, mes),
         ).fetchone()
     return float(row["total"])
+
+def zerar_dados_usuario(user_id: int):
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM transacoes WHERE user_id=?",
+            (user_id,)
+        )
+        conn.execute(
+            "DELETE FROM metas WHERE user_id=?",
+            (user_id,)
+        )
