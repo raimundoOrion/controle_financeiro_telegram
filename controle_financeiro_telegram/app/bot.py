@@ -229,7 +229,7 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Use assim:\n/meta Alimentação 800")
 
     else:
-    lancamento = interpretar_lancamento(texto)
+        lancamento = interpretar_lancamento(texto)
 
     if lancamento:
         user_id = update.effective_user.id
@@ -273,7 +273,8 @@ def main():
     app.add_handler(CommandHandler("relatorio", relatorio))
     app.add_handler(CommandHandler("meta", meta))
     app.add_handler(CommandHandler("exportar", exportar))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
+    app.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, menu_botoes))
+    
     import asyncio
 
     loop = asyncio.new_event_loop()
