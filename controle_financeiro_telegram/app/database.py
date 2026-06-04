@@ -64,7 +64,6 @@ def saldo(user_id: int) -> float:
         ).fetchone()
     return float(row["receitas"] - row["despesas"])
 
-
 def resumo_mes(user_id: int, mes: str):
     with get_conn() as conn:
         totais = conn.execute(
