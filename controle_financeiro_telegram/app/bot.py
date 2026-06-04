@@ -1,8 +1,8 @@
 import os
 from datetime import datetime
 from dotenv import load_dotenv
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from .database import (
     init_db,
@@ -43,19 +43,32 @@ def categoria_automatica(descricao: str) -> str:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    teclado = [
+        ["➕ Receita", "➖ Despesa"],
+        ["💰 Saldo", "📊 Relatório"],
+        ["📋 Extrato", "📁 Exportar Excel"],
+        ["🎯 Meta"]
+    ]
+
+    menu = ReplyKeyboardMarkup(
+        teclado,
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+
     texto = (
         "👋 Bem-vindo ao Controle Financeiro!\n\n"
-        "Comandos disponíveis:\n"
+        "Escolha uma opção no menu abaixo ou use os comandos:\n\n"
         "/receita 1500 Salário\n"
         "/despesa 120 Mercado\n"
         "/saldo\n"
         "/extrato\n"
         "/relatorio\n"
         "/meta Alimentação 800\n"
-        "/exportar\n\n"
-        "Dica: use vírgula ou ponto para valores."
+        "/exportar"
     )
-    await update.message.reply_text(texto)
+
+    await update.message.reply_text(texto, reply_markup=menu)
 
 
 async def registrar(update: Update, context: ContextTypes.DEFAULT_TYPE, tipo: str):
@@ -150,7 +163,34 @@ async def exportar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     arquivo = exportar_excel(user_id)
     await update.message.reply_document(document=open(arquivo, "rb"), filename=arquivo.name)
+async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    texto = update.message.text
 
+    if texto == "➕ Receita":
+        await update.message.reply_text("Use assim:\n/receita 1500 Salário")
+
+    elif texto == "➖ Despesa":
+        await update.message.reply_text("Use assim:\n/despesa 120 Mercado")
+
+    elif texto == "💰 Saldo":
+        await saldo_cmd(update, context)
+
+    elif texto == "📊 Relatório":
+        await relatorio(update, context)
+
+    elif texto == "📋 Extrato":
+        await extrato(update, context)
+
+    elif texto == "📁 Exportar Excel":
+        await exportar(update, context)
+
+    elif texto == "🎯 Meta":
+        await update.message.reply_text("Use assim:\n/meta Alimentação 800")
+
+    else:
+        await update.message.reply_text(
+            "Não entendi. Use o menu ou envie /start."
+        )
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -167,6 +207,7 @@ def main():
     app.add_handler(CommandHandler("relatorio", relatorio))
     app.add_handler(CommandHandler("meta", meta))
     app.add_handler(CommandHandler("exportar", exportar))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
     import asyncio
 
     loop = asyncio.new_event_loop()
