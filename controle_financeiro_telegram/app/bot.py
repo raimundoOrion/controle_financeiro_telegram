@@ -288,7 +288,10 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Use assim:\n/meta Alimentação 800")
         
     elif texto == "📈 Gráfico":
-        await grafico(update, context)    
+        await grafico(update, context)
+    
+    elif texto == "✏️ Corrigir Lançamento":
+        await ultimos(update, context)    
         
     elif texto == "🗑️ Zerar Dados":
         await zerar(update, context)
@@ -380,7 +383,52 @@ async def grafico(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(
             f"Erro ao gerar gráfico:\n{type(e).__name__}: {e}"
-        )     
+        )
+        
+async def ultimos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    itens = listar_ultimos_lancamentos(user_id, 10)
+
+    if not itens:
+        await update.message.reply_text("Nenhum lançamento encontrado.")
+        return
+
+    texto = "📋 Últimos lançamentos:\n\n"
+
+    for item in itens:
+        sinal = "+" if item["tipo"] == "receita" else "-"
+        texto += (
+            f"ID {item['id']} | {sinal} {moeda(item['valor'])} | "
+            f"{item['categoria']} | {item['descricao']}\n"
+        )
+
+    texto += "\nPara excluir, use:\n/excluir ID"
+
+    await update.message.reply_text(texto)
+
+
+async def excluir(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) < 1:
+        await update.message.reply_text("Use assim:\n/excluir 15")
+        return
+
+    try:
+        transacao_id = int(context.args[0])
+        ok = excluir_lancamento(user_id, transacao_id)
+
+        if ok:
+            await update.message.reply_text(
+                f"🗑️ Lançamento ID {transacao_id} excluído com sucesso."
+            )
+        else:
+            await update.message.reply_text(
+                "Não encontrei esse lançamento para excluir."
+            )
+
+    except ValueError:
+        await update.message.reply_text("ID inválido. Exemplo:\n/excluir 15")             
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -401,6 +449,8 @@ def main():
     app.add_handler(CommandHandler("exportar", exportar))
     app.add_handler(CommandHandler("zerar", zerar))
     app.add_handler(CommandHandler("grafico", grafico))
+    app.add_handler(CommandHandler("ultimos", ultimos))
+    app.add_handler(CommandHandler("excluir", excluir))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
 
