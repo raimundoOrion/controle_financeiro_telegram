@@ -399,26 +399,17 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
     app.add_error_handler(erro_handler)
     
-    import asyncio
+import asyncio
 
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
 print("BOT RODANDO - POLLING ATIVO", flush=True)
 
-loop.run_until_complete(
-    app.initialize()
+app.run_polling(
+    close_loop=False,
+    drop_pending_updates=True
 )
-
-loop.run_until_complete(
-    app.start()
-)
-
-loop.run_until_complete(
-    app.updater.start_polling(drop_pending_updates=True)
-)
-
-loop.run_forever()
 
 if __name__ == "__main__":
     main()
