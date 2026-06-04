@@ -385,7 +385,9 @@ def main():
         raise RuntimeError("Configure o TELEGRAM_BOT_TOKEN no arquivo .env")
 
     init_db()
+
     app = Application.builder().token(token).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("receita", receita))
     app.add_handler(CommandHandler("despesa", despesa))
@@ -396,20 +398,21 @@ def main():
     app.add_handler(CommandHandler("exportar", exportar))
     app.add_handler(CommandHandler("zerar", zerar))
     app.add_handler(CommandHandler("grafico", grafico))
+
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
-    app.add_error_handler(erro_handler)
-    
-import asyncio
 
-loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
+    import asyncio
 
-print("BOT RODANDO - POLLING ATIVO", flush=True)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-app.run_polling(
-    close_loop=False,
-    drop_pending_updates=True
-)
+    print("BOT RODANDO - POLLING ATIVO", flush=True)
+
+    app.run_polling(
+        close_loop=False,
+        drop_pending_updates=True
+    )
+
 
 if __name__ == "__main__":
     main()
