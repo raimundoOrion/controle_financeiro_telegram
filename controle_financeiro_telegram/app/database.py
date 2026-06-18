@@ -229,3 +229,31 @@ def excluir_lancamento(user_id: int, transacao_id: int) -> bool:
         conn.commit()
 
     return apagou
+
+def editar_lancamento(user_id: int, transacao_id: int, valor: float, descricao: str = None):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            if descricao:
+                cur.execute(
+                    """
+                    UPDATE transacoes
+                    SET valor=%s, descricao=%s
+                    WHERE user_id=%s AND id=%s
+                    """,
+                    (valor, descricao, user_id, transacao_id),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE transacoes
+                    SET valor=%s
+                    WHERE user_id=%s AND id=%s
+                    """,
+                    (valor, user_id, transacao_id),
+                )
+
+            atualizado = cur.rowcount > 0
+
+        conn.commit()
+
+    return atualizado
