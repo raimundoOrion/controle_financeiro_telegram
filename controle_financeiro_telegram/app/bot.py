@@ -23,6 +23,7 @@ from .database import (
     listar_ultimos_lancamentos,
     excluir_lancamento,
     editar_lancamento,
+    dashboard_mes,
 )
 from .reports import exportar_excel
 
@@ -106,8 +107,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     teclado = [
     ["➕ Receita", "➖ Despesa"],
     ["💰 Saldo", "📊 Relatório"],
+    ["📈 Dashboard", "📈 Gráfico"],
     ["📋 Extrato", "📁 Exportar Excel"],
-    ["🎯 Meta", "📈 Gráfico"],
+    ["🎯 Meta"],
     ["✏️ Corrigir Lançamento"],
     ["🗑️ Zerar Dados"]
 ]
@@ -319,6 +321,9 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Exemplo:\n"
             "/editar 25 150 Gasolina"
         )
+        
+    elif texto == "📈 Dashboard":
+        await dashboard(update, context)
 
     else:
         lancamento = interpretar_lancamento(texto)
@@ -479,7 +484,37 @@ async def editar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Valor ou ID inválido.\n"
             "Exemplo correto:\n"
             "/editar 25 150"
-        )             
+        )
+        
+async def dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user_id = update.effective_user.id
+    mes = datetime.now().strftime("%Y-%m")
+
+    dados = dashboard_mes(user_id, mes)
+
+    texto = (
+        "📊 Dashboard Financeiro\n\n"
+        f"💰 Receitas: {moeda(dados['receitas'])}\n"
+        f"💸 Despesas: {moeda(dados['despesas'])}\n"
+        f"🟢 Saldo: {moeda(dados['saldo'])}\n\n"
+        f"📉 Taxa de gastos: {dados['gastos']:.1f}%\n"
+        f"💵 Taxa de economia: {dados['economia']:.1f}%\n\n"
+    )
+
+    if dados["categorias"]:
+        texto += "🏆 Top Gastos\n\n"
+
+        medalhas = ["🥇", "🥈", "🥉", "🏅", "🏅"]
+
+        for i, cat in enumerate(dados["categorias"]):
+            texto += (
+                f"{medalhas[i]} "
+                f"{cat['categoria']}: "
+                f"{moeda(cat['total'])}\n"
+            )
+
+    await update.message.reply_text(texto)             
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -503,6 +538,7 @@ def main():
     app.add_handler(CommandHandler("ultimos", ultimos))
     app.add_handler(CommandHandler("excluir", excluir))
     app.add_handler(CommandHandler("editar", editar))
+    app.add_handler(CommandHandler("dashboard", dashboard))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
 
