@@ -24,6 +24,10 @@ from .database import (
     excluir_lancamento,
     editar_lancamento,
     dashboard_mes,
+    adicionar_cartao,
+    listar_cartoes,
+    excluir_cartao_db,
+    
 )
 from .reports import exportar_excel
 
@@ -109,7 +113,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ["💰 Saldo", "📊 Relatório"],
     ["📈 Dashboard", "📈 Gráfico"],
     ["📋 Extrato", "📁 Exportar Excel"],
-    ["🎯 Meta"],
+    ["🎯 Meta"], ["💳 Cartões"],
     ["✏️ Corrigir Lançamento"],
     ["🗑️ Zerar Dados"]
 ]
@@ -322,6 +326,9 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/editar 25 150 Gasolina"
         )
         
+    elif texto == "💳 Cartões":
+        await cartoes(update, context)
+        
     elif texto == "📈 Dashboard":
         await dashboard(update, context)
 
@@ -514,7 +521,85 @@ async def dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{moeda(cat['total'])}\n"
             )
 
-    await update.message.reply_text(texto)             
+    await update.message.reply_text(texto)
+    
+async def cartao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) < 2:
+        await update.message.reply_text(
+            "Use assim:\n"
+            "/cartao NOME DIA_VENCIMENTO\n\n"
+            "Exemplo:\n"
+            "/cartao Nubank 10"
+        )
+        return
+
+    try:
+        nome = context.args[0]
+        vencimento = int(context.args[1])
+
+        if vencimento < 1 or vencimento > 31:
+            await update.message.reply_text("O vencimento deve ser entre 1 e 31.")
+            return
+
+        adicionar_cartao(user_id, nome, vencimento)
+
+        await update.message.reply_text(
+            f"💳 Cartão cadastrado com sucesso!\n\n"
+            f"Nome: {nome}\n"
+            f"Vencimento: dia {vencimento}"
+        )
+
+    except ValueError:
+        await update.message.reply_text(
+            "Dia de vencimento inválido.\n"
+            "Exemplo correto:\n/cartao Nubank 10"
+        )
+
+
+async def cartoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    itens = listar_cartoes(user_id)
+
+    if not itens:
+        await update.message.reply_text("Nenhum cartão cadastrado.")
+        return
+
+    texto = "💳 Cartões cadastrados:\n\n"
+
+    for item in itens:
+        texto += (
+            f"ID {item['id']} | {item['nome']} | "
+            f"Vencimento dia {item['vencimento']}\n"
+        )
+
+    texto += "\nPara excluir:\n/excluir_cartao ID"
+
+    await update.message.reply_text(texto)
+
+async def excluir_cartao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) < 1:
+        await update.message.reply_text("Use assim:\n/excluir_cartao 1")
+        return
+
+    try:
+        cartao_id = int(context.args[0])
+        ok = excluir_cartao_db(user_id, cartao_id)
+
+        if ok:
+            await update.message.reply_text(
+                f"🗑️ Cartão ID {cartao_id} excluído com sucesso."
+            )
+        else:
+            await update.message.reply_text(
+                "Não encontrei esse cartão para excluir."
+            )
+
+    except ValueError:
+        await update.message.reply_text("ID inválido.\nExemplo:\n/excluir_cartao 1")             
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -539,6 +624,9 @@ def main():
     app.add_handler(CommandHandler("excluir", excluir))
     app.add_handler(CommandHandler("editar", editar))
     app.add_handler(CommandHandler("dashboard", dashboard))
+    app.add_handler(CommandHandler("cartao", cartao))
+    app.add_handler(CommandHandler("cartoes", cartoes))
+    app.add_handler(CommandHandler("excluir_cartao", excluir_cartao))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
 
