@@ -16,7 +16,6 @@ def get_conn():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
 
-
 def init_db():
     with get_conn() as conn:
         with conn.cursor() as cur:
