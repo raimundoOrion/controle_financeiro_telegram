@@ -257,3 +257,24 @@ def editar_lancamento(user_id: int, transacao_id: int, valor: float, descricao: 
         conn.commit()
 
     return atualizado
+
+def dashboard_mes(user_id: int, mes: str):
+    receitas, despesas, categorias = resumo_mes(user_id, mes)
+
+    saldo_atual = receitas - despesas
+
+    if receitas > 0:
+        percentual_gasto = (despesas / receitas) * 100
+        percentual_economia = (saldo_atual / receitas) * 100
+    else:
+        percentual_gasto = 0
+        percentual_economia = 0
+
+    return {
+        "receitas": receitas,
+        "despesas": despesas,
+        "saldo": saldo_atual,
+        "gastos": percentual_gasto,
+        "economia": percentual_economia,
+        "categorias": categorias[:5]
+    }
