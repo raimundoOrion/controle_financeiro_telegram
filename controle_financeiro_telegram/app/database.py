@@ -344,3 +344,139 @@ def excluir_cartao_db(user_id: int, cartao_id: int) -> bool:
         conn.commit()
 
     return apagou
+
+def criar_tabela_parcelamentos():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS parcelamentos (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    descricao TEXT NOT NULL,
+                    valor_total NUMERIC(12,2) NOT NULL,
+                    quantidade_parcelas INTEGER NOT NULL,
+                    valor_parcela NUMERIC(12,2) NOT NULL,
+                    cartao_id INTEGER,
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS parcelas (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    parcelamento_id INTEGER NOT NULL,
+                    numero_parcela INTEGER NOT NULL,
+                    valor NUMERIC(12,2) NOT NULL,
+                    vencimento DATE NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pendente'
+                )
+                """
+            )
+        conn.commit()
+
+
+def buscar_cartao_por_nome(user_id: int, nome: str):
+    criar_tabela_cartoes()
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, nome, vencimento
+                FROM cartoes
+                WHERE user_id=%s AND LOWER(nome)=LOWER(%s)
+                LIMIT 1
+                """,
+                (user_id, nome),
+            )
+            return cur.fetchone()
+
+
+def adicionar_parcelamento(user_id: int, descricao: str, valor_total: float, quantidade: int, cartao_nome: str):
+    criar_tabela_parcelamentos()
+
+    cartao = buscar_cartao_por_nome(user_id, cartao_nome)
+
+    if not cartao:
+        return None
+
+    valor_parcela = round(valor_total / quantidade, 2)
+
+    from datetime import date
+    import calendar
+
+    hoje = date.today()
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                INSERT INTO parcelamentos
+                (user_id, descricao, valor_total, quantidade_parcelas, valor_parcela, cartao_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (user_id, descricao, valor_total, quantidade, valor_parcela, cartao["id"]),
+            )
+
+            parcelamento_id = cur.fetchone()["id"]
+
+            for i in range(1, quantidade + 1):
+                mes = hoje.month + i - 1
+                ano = hoje.year + (mes - 1) // 12
+                mes = ((mes - 1) % 12) + 1
+
+                ultimo_dia = calendar.monthrange(ano, mes)[1]
+                dia_vencimento = min(cartao["vencimento"], ultimo_dia)
+
+                vencimento = date(ano, mes, dia_vencimento)
+
+                cur.execute(
+                    """
+                    INSERT INTO parcelas
+                    (user_id, parcelamento_id, numero_parcela, valor, vencimento)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (user_id, parcelamento_id, i, valor_parcela, vencimento),
+                )
+
+        conn.commit()
+
+    return {
+        "id": parcelamento_id,
+        "descricao": descricao,
+        "valor_total": valor_total,
+        "quantidade": quantidade,
+        "valor_parcela": valor_parcela,
+        "cartao": cartao["nome"],
+    }
+
+
+def listar_parcelas_futuras(user_id: int, limite: int = 20):
+    criar_tabela_parcelamentos()
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    p.id,
+                    p.numero_parcela,
+                    p.valor,
+                    p.vencimento,
+                    p.status,
+                    pa.descricao,
+                    pa.quantidade_parcelas
+                FROM parcelas p
+                JOIN parcelamentos pa ON pa.id = p.parcelamento_id
+                WHERE p.user_id=%s
+                ORDER BY p.vencimento ASC
+                LIMIT %s
+                """,
+                (user_id, limite),
+            )
+            return cur.fetchall()
