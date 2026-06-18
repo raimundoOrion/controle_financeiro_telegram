@@ -22,6 +22,7 @@ from .database import (
     zerar_dados_usuario,
     listar_ultimos_lancamentos,
     excluir_lancamento,
+    editar_lancamento,
 )
 from .reports import exportar_excel
 
@@ -306,6 +307,17 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/receita 1000 Salário\n"
             "/despesa 100 Mercado"
         )
+        
+    elif texto == "✏️ Corrigir Lançamento":
+    await update.message.reply_text(
+        "Para corrigir um lançamento:\n\n"
+        "1. Veja os últimos lançamentos:\n"
+        "/ultimos\n\n"
+        "2. Edite pelo ID:\n"
+        "/editar ID VALOR\n\n"
+        "Exemplo:\n"
+        "/editar 25 150 Gasolina"
+    )
 
     else:
         lancamento = interpretar_lancamento(texto)
@@ -429,7 +441,44 @@ async def excluir(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     except ValueError:
-        await update.message.reply_text("ID inválido. Exemplo:\n/excluir 15")             
+        await update.message.reply_text("ID inválido. Exemplo:\n/excluir 15")
+        
+async def editar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) < 2:
+        await update.message.reply_text(
+            "Use assim:\n"
+            "/editar ID VALOR\n\n"
+            "Exemplo:\n"
+            "/editar 25 150\n"
+            "/editar 25 150 Gasolina"
+        )
+        return
+
+    try:
+        transacao_id = int(context.args[0])
+        valor = parse_valor(context.args[1])
+        descricao = " ".join(context.args[2:]) if len(context.args) > 2 else None
+
+        ok = editar_lancamento(user_id, transacao_id, valor, descricao)
+
+        if ok:
+            await update.message.reply_text(
+                f"✏️ Lançamento ID {transacao_id} atualizado com sucesso.\n"
+                f"Novo valor: {moeda(valor)}"
+            )
+        else:
+            await update.message.reply_text(
+                "Não encontrei esse lançamento para editar."
+            )
+
+    except ValueError:
+        await update.message.reply_text(
+            "Valor ou ID inválido.\n"
+            "Exemplo correto:\n"
+            "/editar 25 150"
+        )             
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -452,6 +501,7 @@ def main():
     app.add_handler(CommandHandler("grafico", grafico))
     app.add_handler(CommandHandler("ultimos", ultimos))
     app.add_handler(CommandHandler("excluir", excluir))
+    app.add_handler(CommandHandler("editar", editar))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
 
