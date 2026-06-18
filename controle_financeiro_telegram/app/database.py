@@ -1,91 +1,115 @@
-import sqlite3
-from pathlib import Path
+import os
 from datetime import datetime
+from urllib.parse import urlparse
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "data" / "financeiro.db"
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+import psycopg2
+import psycopg2.extras
+
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL não configurada no Render.")
+
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 
 def init_db():
     with get_conn() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS transacoes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                tipo TEXT NOT NULL CHECK(tipo IN ('receita','despesa')),
-                valor REAL NOT NULL,
-                categoria TEXT NOT NULL,
-                descricao TEXT,
-                data TEXT NOT NULL
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS transacoes (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    tipo TEXT NOT NULL CHECK(tipo IN ('receita','despesa')),
+                    valor NUMERIC(12,2) NOT NULL,
+                    categoria TEXT NOT NULL,
+                    descricao TEXT,
+                    data TIMESTAMP NOT NULL
+                )
+                """
             )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS metas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                categoria TEXT NOT NULL,
-                limite REAL NOT NULL,
-                mes TEXT NOT NULL,
-                UNIQUE(user_id, categoria, mes)
+
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS metas (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    categoria TEXT NOT NULL,
+                    limite NUMERIC(12,2) NOT NULL,
+                    mes TEXT NOT NULL,
+                    UNIQUE(user_id, categoria, mes)
+                )
+                """
             )
-            """
-        )
+
+        conn.commit()
 
 
 def adicionar_transacao(user_id: int, tipo: str, valor: float, categoria: str, descricao: str = ""):
-    data = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data = datetime.now()
+
     with get_conn() as conn:
-        conn.execute(
-            "INSERT INTO transacoes (user_id, tipo, valor, categoria, descricao, data) VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, tipo, valor, categoria, descricao, data),
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO transacoes (user_id, tipo, valor, categoria, descricao, data)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (user_id, tipo, valor, categoria, descricao, data),
+            )
+        conn.commit()
 
 
 def saldo(user_id: int) -> float:
     with get_conn() as conn:
-        row = conn.execute(
-            """
-            SELECT
-                COALESCE(SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END),0) AS receitas,
-                COALESCE(SUM(CASE WHEN tipo='despesa' THEN valor ELSE 0 END),0) AS despesas
-            FROM transacoes WHERE user_id=?
-            """,
-            (user_id,),
-        ).fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    COALESCE(SUM(CASE WHEN tipo='receita' THEN valor ELSE 0 END),0) AS receitas,
+                    COALESCE(SUM(CASE WHEN tipo='despesa' THEN valor ELSE 0 END),0) AS despesas
+                FROM transacoes
+                WHERE user_id=%s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+
     return float(row["receitas"] - row["despesas"])
+
 
 def resumo_mes(user_id: int, mes: str):
     with get_conn() as conn:
-        totais = conn.execute(
-            """
-            SELECT tipo, COALESCE(SUM(valor),0) AS total
-            FROM transacoes
-            WHERE user_id=? AND substr(data, 1, 7)=?
-            GROUP BY tipo
-            """,
-            (user_id, mes),
-        ).fetchall()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT tipo, COALESCE(SUM(valor),0) AS total
+                FROM transacoes
+                WHERE user_id=%s AND TO_CHAR(data, 'YYYY-MM')=%s
+                GROUP BY tipo
+                """,
+                (user_id, mes),
+            )
+            totais = cur.fetchall()
 
-        categorias = conn.execute(
-            """
-            SELECT categoria, COALESCE(SUM(valor),0) AS total
-            FROM transacoes
-            WHERE user_id=? AND tipo='despesa' AND substr(data, 1, 7)=?
-            GROUP BY categoria
-            ORDER BY total DESC
-            """,
-            (user_id, mes),
-        ).fetchall()
+            cur.execute(
+                """
+                SELECT categoria, COALESCE(SUM(valor),0) AS total
+                FROM transacoes
+                WHERE user_id=%s
+                  AND tipo='despesa'
+                  AND TO_CHAR(data, 'YYYY-MM')=%s
+                GROUP BY categoria
+                ORDER BY total DESC
+                """,
+                (user_id, mes),
+            )
+            categorias = cur.fetchall()
 
     receitas = sum(float(r["total"]) for r in totais if r["tipo"] == "receita")
     despesas = sum(float(r["total"]) for r in totais if r["tipo"] == "despesa")
@@ -95,87 +119,114 @@ def resumo_mes(user_id: int, mes: str):
 
 def listar_transacoes(user_id: int, limite: int = 10):
     with get_conn() as conn:
-        return conn.execute(
-            """
-            SELECT * FROM transacoes
-            WHERE user_id=?
-            ORDER BY data DESC
-            LIMIT ?
-            """,
-            (user_id, limite),
-        ).fetchall()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT *
+                FROM transacoes
+                WHERE user_id=%s
+                ORDER BY data DESC
+                LIMIT %s
+                """,
+                (user_id, limite),
+            )
+            return cur.fetchall()
 
 
 def definir_meta(user_id: int, categoria: str, limite: float, mes: str):
     with get_conn() as conn:
-        conn.execute(
-            """
-            INSERT INTO metas (user_id, categoria, limite, mes)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(user_id, categoria, mes)
-            DO UPDATE SET limite=excluded.limite
-            """,
-            (user_id, categoria, limite, mes),
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO metas (user_id, categoria, limite, mes)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (user_id, categoria, mes)
+                DO UPDATE SET limite=EXCLUDED.limite
+                """,
+                (user_id, categoria, limite, mes),
+            )
+        conn.commit()
+
 
 def gasto_categoria_mes(user_id: int, categoria: str, mes: str) -> float:
     with get_conn() as conn:
-        row = conn.execute(
-            """
-            SELECT COALESCE(SUM(valor),0) AS total
-            FROM transacoes
-            WHERE user_id=? AND tipo='despesa' AND categoria=? AND strftime('%Y-%m', data)=?
-            """,
-            (user_id, categoria, mes),
-        ).fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(valor),0) AS total
+                FROM transacoes
+                WHERE user_id=%s
+                  AND tipo='despesa'
+                  AND categoria=%s
+                  AND TO_CHAR(data, 'YYYY-MM')=%s
+                """,
+                (user_id, categoria, mes),
+            )
+            row = cur.fetchone()
+
     return float(row["total"])
+
 
 def zerar_dados_usuario(user_id: int):
     with get_conn() as conn:
-        conn.execute(
-            "DELETE FROM transacoes WHERE user_id=?",
-            (user_id,)
-        )
-        conn.execute(
-            "DELETE FROM metas WHERE user_id=?",
-            (user_id,)
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM transacoes WHERE user_id=%s",
+                (user_id,),
+            )
+            cur.execute(
+                "DELETE FROM metas WHERE user_id=%s",
+                (user_id,),
+            )
+        conn.commit()
+
 
 def despesas_por_categoria_mes(user_id: int, mes: str):
     with get_conn() as conn:
-        return conn.execute(
-            """
-            SELECT categoria, COALESCE(SUM(valor),0) AS total
-            FROM transacoes
-            WHERE user_id=? AND tipo='despesa' AND substr(data, 1, 7)=?
-            GROUP BY categoria
-            ORDER BY total DESC
-            """,
-            (user_id, mes),
-        ).fetchall()
-        
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT categoria, COALESCE(SUM(valor),0) AS total
+                FROM transacoes
+                WHERE user_id=%s
+                  AND tipo='despesa'
+                  AND TO_CHAR(data, 'YYYY-MM')=%s
+                GROUP BY categoria
+                ORDER BY total DESC
+                """,
+                (user_id, mes),
+            )
+            return cur.fetchall()
+
+
 def listar_ultimos_lancamentos(user_id: int, limite: int = 10):
     with get_conn() as conn:
-        return conn.execute(
-            """
-            SELECT id, tipo, valor, categoria, descricao, data
-            FROM transacoes
-            WHERE user_id=?
-            ORDER BY id DESC
-            LIMIT ?
-            """,
-            (user_id, limite),
-        ).fetchall()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, tipo, valor, categoria, descricao, data
+                FROM transacoes
+                WHERE user_id=%s
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (user_id, limite),
+            )
+            return cur.fetchall()
 
 
 def excluir_lancamento(user_id: int, transacao_id: int) -> bool:
     with get_conn() as conn:
-        cursor = conn.execute(
-            """
-            DELETE FROM transacoes
-            WHERE user_id=? AND id=?
-            """,
-            (user_id, transacao_id),
-        )
-        return cursor.rowcount > 0                
-        
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM transacoes
+                WHERE user_id=%s AND id=%s
+                """,
+                (user_id, transacao_id),
+            )
+            apagou = cur.rowcount > 0
+
+        conn.commit()
+
+    return apagou
