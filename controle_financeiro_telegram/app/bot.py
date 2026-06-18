@@ -27,6 +27,8 @@ from .database import (
     adicionar_cartao,
     listar_cartoes,
     excluir_cartao_db,
+    adicionar_parcelamento,
+    listar_parcelas_futuras,
     
 )
 from .reports import exportar_excel
@@ -113,8 +115,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ["💰 Saldo", "📊 Relatório"],
     ["📈 Dashboard", "📈 Gráfico"],
     ["📋 Extrato", "📁 Exportar Excel"],
-    ["🎯 Meta", "💳 Cartões"],
-    ["✏️ Corrigir Lançamento"],
+    ["💳 Cartões", "📆 Parcelas"],
+    ["🎯 Meta", "✏️ Corrigir Lançamento"],
     ["🗑️ Zerar Dados"]
 ]
 
@@ -328,6 +330,9 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     elif texto == "💳 Cartões":
         await cartoes(update, context)
+    
+    elif texto == "📆 Parcelas":
+        await parcelas(update, context)
         
     elif texto == "📈 Dashboard":
         await dashboard(update, context)
@@ -599,7 +604,84 @@ async def excluir_cartao(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     except ValueError:
-        await update.message.reply_text("ID inválido.\nExemplo:\n/excluir_cartao 1")             
+        await update.message.reply_text("ID inválido.\nExemplo:\n/excluir_cartao 1")
+        
+async def parcelar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) < 4:
+        await update.message.reply_text(
+            "Use assim:\n"
+            "/parcelar DESCRIÇÃO VALOR PARCELAS CARTÃO\n\n"
+            "Exemplo:\n"
+            "/parcelar TV 2400 12 Nubank\n"
+            "/parcelar Geladeira 1800 10 Inter"
+        )
+        return
+
+    try:
+        cartao_nome = context.args[-1]
+        quantidade = int(context.args[-2])
+        valor_total = parse_valor(context.args[-3])
+        descricao = " ".join(context.args[:-3])
+
+        if quantidade <= 0:
+            await update.message.reply_text("A quantidade de parcelas deve ser maior que zero.")
+            return
+
+        resultado = adicionar_parcelamento(
+            user_id,
+            descricao,
+            valor_total,
+            quantidade,
+            cartao_nome,
+        )
+
+        if not resultado:
+            await update.message.reply_text(
+                "Cartão não encontrado.\n\n"
+                "Cadastre primeiro com:\n"
+                "/cartao Nubank 10"
+            )
+            return
+
+        await update.message.reply_text(
+            f"💳 Compra parcelada cadastrada!\n\n"
+            f"Descrição: {resultado['descricao']}\n"
+            f"Cartão: {resultado['cartao']}\n"
+            f"Valor total: {moeda(resultado['valor_total'])}\n"
+            f"Parcelas: {resultado['quantidade']}x de {moeda(resultado['valor_parcela'])}\n"
+            f"ID: {resultado['id']}"
+        )
+
+    except ValueError:
+        await update.message.reply_text(
+            "Dados inválidos.\n\n"
+            "Exemplo correto:\n"
+            "/parcelar TV 2400 12 Nubank"
+        )
+
+
+async def parcelas(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    itens = listar_parcelas_futuras(user_id, 20)
+
+    if not itens:
+        await update.message.reply_text("Nenhuma parcela futura encontrada.")
+        return
+
+    texto = "📆 Parcelas futuras:\n\n"
+
+    for item in itens:
+        texto += (
+            f"{item['vencimento']} | "
+            f"{item['descricao']} "
+            f"{item['numero_parcela']}/{item['quantidade_parcelas']} | "
+            f"{moeda(item['valor'])} | "
+            f"{item['status']}\n"
+        )
+
+    await update.message.reply_text(texto)           
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -627,6 +709,8 @@ def main():
     app.add_handler(CommandHandler("cartao", cartao))
     app.add_handler(CommandHandler("cartoes", cartoes))
     app.add_handler(CommandHandler("excluir_cartao", excluir_cartao))
+    app.add_handler(CommandHandler("parcelar", parcelar))
+    app.add_handler(CommandHandler("parcelas", parcelas))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
 
