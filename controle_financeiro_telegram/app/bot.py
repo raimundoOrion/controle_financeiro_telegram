@@ -309,15 +309,15 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
     elif texto == "✏️ Corrigir Lançamento":
-    await update.message.reply_text(
-        "Para corrigir um lançamento:\n\n"
-        "1. Veja os últimos lançamentos:\n"
-        "/ultimos\n\n"
-        "2. Edite pelo ID:\n"
-        "/editar ID VALOR\n\n"
-        "Exemplo:\n"
-        "/editar 25 150 Gasolina"
-    )
+        await update.message.reply_text(
+            "Para corrigir um lançamento:\n\n"
+            "1. Veja os últimos lançamentos:\n"
+            "/ultimos\n\n"
+            "2. Edite pelo ID:\n"
+            "/editar ID VALOR\n\n"
+            "Exemplo:\n"
+            "/editar 25 150 Gasolina"
+        )
 
     else:
         lancamento = interpretar_lancamento(texto)
