@@ -278,3 +278,69 @@ def dashboard_mes(user_id: int, mes: str):
         "economia": percentual_economia,
         "categorias": categorias[:5]
     }
+    
+def criar_tabela_cartoes():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS cartoes (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    nome TEXT NOT NULL,
+                    vencimento INTEGER NOT NULL,
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+        conn.commit()
+
+
+def adicionar_cartao(user_id: int, nome: str, vencimento: int):
+    criar_tabela_cartoes()
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO cartoes (user_id, nome, vencimento)
+                VALUES (%s, %s, %s)
+                """,
+                (user_id, nome, vencimento),
+            )
+        conn.commit()
+
+
+def listar_cartoes(user_id: int):
+    criar_tabela_cartoes()
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, nome, vencimento
+                FROM cartoes
+                WHERE user_id=%s
+                ORDER BY nome
+                """,
+                (user_id,),
+            )
+            return cur.fetchall()
+
+
+def excluir_cartao_db(user_id: int, cartao_id: int) -> bool:
+    criar_tabela_cartoes()
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM cartoes
+                WHERE user_id=%s AND id=%s
+                """,
+                (user_id, cartao_id),
+            )
+            apagou = cur.rowcount > 0
+        conn.commit()
+
+    return apagou
