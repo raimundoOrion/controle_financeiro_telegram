@@ -480,3 +480,132 @@ def listar_parcelas_futuras(user_id: int, limite: int = 20):
                 (user_id, limite),
             )
             return cur.fetchall()
+        
+def criar_tabela_emprestimos():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS emprestimos (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    tipo TEXT NOT NULL,
+                    descricao TEXT NOT NULL,
+                    valor_total NUMERIC(12,2) NOT NULL,
+                    quantidade_parcelas INTEGER NOT NULL,
+                    valor_parcela NUMERIC(12,2) NOT NULL,
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS parcelas_emprestimos (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    emprestimo_id INTEGER NOT NULL,
+                    numero_parcela INTEGER NOT NULL,
+                    valor NUMERIC(12,2) NOT NULL,
+                    vencimento DATE NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pendente'
+                )
+                """
+            )
+        conn.commit()
+
+
+def adicionar_emprestimo(user_id: int, tipo: str, descricao: str, valor_total: float, quantidade: int):
+    criar_tabela_emprestimos()
+
+    valor_parcela = round(valor_total / quantidade, 2)
+
+    from datetime import date
+    import calendar
+
+    hoje = date.today()
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                INSERT INTO emprestimos
+                (user_id, tipo, descricao, valor_total, quantidade_parcelas, valor_parcela)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (user_id, tipo, descricao, valor_total, quantidade, valor_parcela),
+            )
+
+            emprestimo_id = cur.fetchone()["id"]
+
+            for i in range(1, quantidade + 1):
+                mes = hoje.month + i - 1
+                ano = hoje.year + (mes - 1) // 12
+                mes = ((mes - 1) % 12) + 1
+
+                ultimo_dia = calendar.monthrange(ano, mes)[1]
+                dia_vencimento = min(hoje.day, ultimo_dia)
+
+                vencimento = date(ano, mes, dia_vencimento)
+
+                cur.execute(
+                    """
+                    INSERT INTO parcelas_emprestimos
+                    (user_id, emprestimo_id, numero_parcela, valor, vencimento)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (user_id, emprestimo_id, i, valor_parcela, vencimento),
+                )
+
+        conn.commit()
+
+    return {
+        "id": emprestimo_id,
+        "tipo": tipo,
+        "descricao": descricao,
+        "valor_total": valor_total,
+        "quantidade": quantidade,
+        "valor_parcela": valor_parcela,
+    }
+
+def listar_compromissos_futuros(user_id: int, limite: int = 30):
+    criar_tabela_parcelamentos()
+    criar_tabela_emprestimos()
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    'Cartão' AS origem,
+                    p.vencimento,
+                    pa.descricao,
+                    p.numero_parcela,
+                    pa.quantidade_parcelas,
+                    p.valor,
+                    p.status
+                FROM parcelas p
+                JOIN parcelamentos pa ON pa.id = p.parcelamento_id
+                WHERE p.user_id=%s
+
+                UNION ALL
+
+                SELECT
+                    e.tipo AS origem,
+                    pe.vencimento,
+                    e.descricao,
+                    pe.numero_parcela,
+                    e.quantidade_parcelas,
+                    pe.valor,
+                    pe.status
+                FROM parcelas_emprestimos pe
+                JOIN emprestimos e ON e.id = pe.emprestimo_id
+                WHERE pe.user_id=%s
+
+                ORDER BY vencimento ASC
+                LIMIT %s
+                """,
+                (user_id, user_id, limite),
+            )
+            return cur.fetchall()
