@@ -29,6 +29,8 @@ from .database import (
     excluir_cartao_db,
     adicionar_parcelamento,
     listar_parcelas_futuras,
+    adicionar_emprestimo,
+    listar_compromissos_futuros,
     
 )
 from .reports import exportar_excel
@@ -116,6 +118,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ["📈 Dashboard", "📈 Gráfico"],
     ["📋 Extrato", "📁 Exportar Excel"],
     ["💳 Cartões", "📆 Parcelas"],
+    ["🏦 Banco/Empréstimo", "📆 Compromissos"]
     ["🎯 Meta", "✏️ Corrigir Lançamento"],
     ["🗑️ Zerar Dados"]
 ]
@@ -336,6 +339,16 @@ async def menu_botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     elif texto == "📈 Dashboard":
         await dashboard(update, context)
+        
+    elif texto == "🏦 Banco/Empréstimo":
+        await update.message.reply_text(
+            "Comandos disponíveis:\n\n"
+            "/emprestimo Banco 50000 48\n"
+            "/financiamento Ranger 60000 48"
+    )
+
+    elif texto == "📆 Compromissos":
+        await compromissos(update, context)
 
     else:
         lancamento = interpretar_lancamento(texto)
@@ -681,6 +694,110 @@ async def parcelas(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{item['status']}\n"
         )
 
+    await update.message.reply_text(texto)
+    
+async def emprestimo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) < 3:
+        await update.message.reply_text(
+            "Use assim:\n"
+            "/emprestimo DESCRIÇÃO VALOR PARCELAS\n\n"
+            "Exemplo:\n"
+            "/emprestimo Banco 50000 48"
+        )
+        return
+
+    try:
+        quantidade = int(context.args[-1])
+        valor_total = parse_valor(context.args[-2])
+        descricao = " ".join(context.args[:-2])
+
+        resultado = adicionar_emprestimo(
+            user_id,
+            "Empréstimo",
+            descricao,
+            valor_total,
+            quantidade,
+        )
+
+        await update.message.reply_text(
+            f"🏦 Empréstimo cadastrado!\n\n"
+            f"Descrição: {resultado['descricao']}\n"
+            f"Valor total: {moeda(resultado['valor_total'])}\n"
+            f"Parcelas: {resultado['quantidade']}x de {moeda(resultado['valor_parcela'])}\n"
+            f"ID: {resultado['id']}"
+        )
+
+    except ValueError:
+        await update.message.reply_text(
+            "Dados inválidos.\n\n"
+            "Exemplo correto:\n"
+            "/emprestimo Banco 50000 48"
+        )
+
+
+async def financiamento(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if len(context.args) < 3:
+        await update.message.reply_text(
+            "Use assim:\n"
+            "/financiamento DESCRIÇÃO VALOR PARCELAS\n\n"
+            "Exemplo:\n"
+            "/financiamento Ranger 60000 48"
+        )
+        return
+
+    try:
+        quantidade = int(context.args[-1])
+        valor_total = parse_valor(context.args[-2])
+        descricao = " ".join(context.args[:-2])
+
+        resultado = adicionar_emprestimo(
+            user_id,
+            "Financiamento",
+            descricao,
+            valor_total,
+            quantidade,
+        )
+
+        await update.message.reply_text(
+            f"🚗 Financiamento cadastrado!\n\n"
+            f"Descrição: {resultado['descricao']}\n"
+            f"Valor total: {moeda(resultado['valor_total'])}\n"
+            f"Parcelas: {resultado['quantidade']}x de {moeda(resultado['valor_parcela'])}\n"
+            f"ID: {resultado['id']}"
+        )
+
+    except ValueError:
+        await update.message.reply_text(
+            "Dados inválidos.\n\n"
+            "Exemplo correto:\n"
+            "/financiamento Ranger 60000 48"
+        )
+
+
+async def compromissos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    itens = listar_compromissos_futuros(user_id, 30)
+
+    if not itens:
+        await update.message.reply_text("Nenhum compromisso futuro encontrado.")
+        return
+
+    texto = "📆 Compromissos futuros:\n\n"
+
+    for item in itens:
+        texto += (
+            f"{item['vencimento']} | "
+            f"{item['origem']} | "
+            f"{item['descricao']} "
+            f"{item['numero_parcela']}/{item['quantidade_parcelas']} | "
+            f"{moeda(item['valor'])} | "
+            f"{item['status']}\n"
+        )
+
     await update.message.reply_text(texto)           
 
 def main():
@@ -711,6 +828,9 @@ def main():
     app.add_handler(CommandHandler("excluir_cartao", excluir_cartao))
     app.add_handler(CommandHandler("parcelar", parcelar))
     app.add_handler(CommandHandler("parcelas", parcelas))
+    app.add_handler(CommandHandler("emprestimo", emprestimo))
+    app.add_handler(CommandHandler("financiamento", financiamento))
+    app.add_handler(CommandHandler("compromissos", compromissos))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_botoes))
 
