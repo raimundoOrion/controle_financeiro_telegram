@@ -31,6 +31,7 @@ from .database import (
     listar_parcelas_futuras,
     adicionar_emprestimo,
     listar_compromissos_futuros,
+    resumo_compromissos,
     
 )
 from .reports import exportar_excel
@@ -512,17 +513,23 @@ async def editar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
 async def dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     user_id = update.effective_user.id
     mes = datetime.now().strftime("%Y-%m")
 
     dados = dashboard_mes(user_id, mes)
+    compromissos = resumo_compromissos(user_id)
 
     texto = (
         "📊 Dashboard Financeiro\n\n"
-        f"💰 Receitas: {moeda(dados['receitas'])}\n"
-        f"💸 Despesas: {moeda(dados['despesas'])}\n"
-        f"🟢 Saldo: {moeda(dados['saldo'])}\n\n"
+        f"💰 Receitas do mês: {moeda(dados['receitas'])}\n"
+        f"💸 Despesas do mês: {moeda(dados['despesas'])}\n"
+        f"🟢 Saldo do mês: {moeda(dados['saldo'])}\n\n"
+        "📌 Compromissos futuros\n"
+        f"💳 Cartão de crédito: {moeda(compromissos['cartao'])}\n"
+        f"🏦 Empréstimos: {moeda(compromissos['emprestimos'])}\n"
+        f"🚗 Financiamentos: {moeda(compromissos['financiamentos'])}\n"
+        f"📆 Vencimentos neste mês: {moeda(compromissos['mes_atual'])}\n"
+        f"📍 Total futuro: {moeda(compromissos['total_futuro'])}\n\n"
         f"📉 Taxa de gastos: {dados['gastos']:.1f}%\n"
         f"💵 Taxa de economia: {dados['economia']:.1f}%\n\n"
     )
