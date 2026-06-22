@@ -118,7 +118,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ["📈 Dashboard", "📈 Gráfico"],
     ["📋 Extrato", "📁 Exportar Excel"],
     ["💳 Cartões", "📆 Parcelas"],
-    ["🏦 Banco/Empréstimo", "📆 Compromissos"]
+    ["🏦 Banco/Empréstimo", "📆 Compromissos"],
     ["🎯 Meta", "✏️ Corrigir Lançamento"],
     ["🗑️ Zerar Dados"]
 ]
