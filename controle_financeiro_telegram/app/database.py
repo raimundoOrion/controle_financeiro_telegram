@@ -609,3 +609,66 @@ def listar_compromissos_futuros(user_id: int, limite: int = 30):
                 (user_id, user_id, limite),
             )
             return cur.fetchall()
+        
+def resumo_compromissos(user_id: int):
+    criar_tabela_parcelamentos()
+    criar_tabela_emprestimos()
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(valor),0) AS total
+                FROM parcelas
+                WHERE user_id=%s AND status='pendente'
+                """,
+                (user_id,),
+            )
+            cartao = float(cur.fetchone()["total"])
+
+            cur.execute(
+                """
+                SELECT
+                    COALESCE(SUM(CASE WHEN e.tipo='Empréstimo' THEN pe.valor ELSE 0 END),0) AS emprestimos,
+                    COALESCE(SUM(CASE WHEN e.tipo='Financiamento' THEN pe.valor ELSE 0 END),0) AS financiamentos
+                FROM parcelas_emprestimos pe
+                JOIN emprestimos e ON e.id = pe.emprestimo_id
+                WHERE pe.user_id=%s AND pe.status='pendente'
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+
+            emprestimos = float(row["emprestimos"])
+            financiamentos = float(row["financiamentos"])
+
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(total),0) AS total
+                FROM (
+                    SELECT valor AS total
+                    FROM parcelas
+                    WHERE user_id=%s
+                      AND status='pendente'
+                      AND TO_CHAR(vencimento, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+
+                    UNION ALL
+
+                    SELECT pe.valor AS total
+                    FROM parcelas_emprestimos pe
+                    WHERE pe.user_id=%s
+                      AND pe.status='pendente'
+                      AND TO_CHAR(pe.vencimento, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+                ) x
+                """,
+                (user_id, user_id),
+            )
+            mes_atual = float(cur.fetchone()["total"])
+
+    return {
+        "cartao": cartao,
+        "emprestimos": emprestimos,
+        "financiamentos": financiamentos,
+        "mes_atual": mes_atual,
+        "total_futuro": cartao + emprestimos + financiamentos
+    }
